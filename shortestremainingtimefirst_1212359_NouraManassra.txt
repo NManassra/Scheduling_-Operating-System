@@ -1,0 +1,253 @@
+/// Student's Name : Noura Awni Jaber Manassra
+/// Student's ID : 1212359
+/// Instructor's Name : Dr. Abdel Salam Sayyad
+/// Section : 1
+#include <iostream>
+#include <vector>
+#include <algorithm>
+const int maxTime = 200;
+using namespace std;
+struct Process {
+    int processID;
+    int arrivalTime;
+    int burstTime;
+    int comesBackAfter;
+    int CompletionTime;
+    int turnaroundTime;
+    int waitingTime;
+    int remainingTime; // initialize with burst time
+    int finished;
+// i initilized all of them zeros
+     Process(int id, int arrival, int burst, int comesBack)
+        : processID(id), arrivalTime(arrival), burstTime(burst), comesBackAfter(comesBack),
+          CompletionTime(0), turnaroundTime(0), waitingTime(0),
+          remainingTime(burst), finished(0) {}
+};
+// this is for the linked list
+struct Node {
+    Process* process;
+    Node* next;
+    //these two for the nodes
+    Node(Process* p) : process(p), next(nullptr) {} //sets the next pointer to nullptr, indicating that this node is
+                                                       // currently the last one in the linked list.
+};
+
+struct Queue {
+    Node* front;
+    Node* rear;
+// i used these to trace the queue
+    Queue() : front(nullptr), rear(nullptr) {}
+     bool exceedsTimeLimit(int burstTimeToAdd) {
+        int totalRemainingTime = 0;
+        Node* current = front;
+        while (current != nullptr) {
+            totalRemainingTime += current->process->remainingTime;
+            current = current->next;
+        }
+        return (totalRemainingTime + burstTimeToAdd) > maxTime;
+    }
+    void enqueue(Process* process) {
+        Node* newNode = new Node(process);
+        // it checks if the process with the same ID is already in the ready queue
+        Node* temp = front;
+        while (temp != nullptr) {
+                // the first thing to do here is to check if a process with the
+                // same ID is already in the queue, skip enqueuing
+            if (temp->process->processID == process->processID) {
+                delete newNode;
+                return;
+            }
+            temp = temp->next;
+        }
+          if (exceedsTimeLimit(process->burstTime)) {
+        delete newNode;
+        return;
+    }
+// here it checks if the process at the front has less arrival time or not, or the queue is empty
+//if the other process has less arrival time, it means that the new process should be inserted at the front of the queue.
+        if (rear == nullptr || process->arrivalTime < front->process->arrivalTime) {
+            newNode->next = front; // it makes the new node the new front of the queue.
+            front = newNode;//updates the front pointer to point to the newly added node
+            if (rear == nullptr) {
+                rear = newNode;
+            }
+        } else {
+            Node* current = front;
+            while (current->next != nullptr && current->next->process->arrivalTime <= process->arrivalTime) {
+                // to check if it's the same ID
+                if (current->next->process->processID == process->processID) {
+                    //if a process with the same ID is already in the queue, skip enqueuing
+                    delete newNode;
+                    return;
+                }
+                current = current->next;//inserts the new node into the linked list.
+            }
+            //this line sets the next pointer of the new node (newNode) to point to the same node that current is currently pointing to
+            newNode->next = current->next; //preserves the link from the current node to the rest of the list after the new node.
+            current->next = newNode;//this line updates the next pointer of the current node to point to the new node (newNode)
+            if (newNode->next == nullptr) { //checks if the new node was inserted at the end of the linked list.
+                rear = newNode; // the rear pointer is updated to point to the new nod
+            }
+        }
+    }
+    Process* dequeue() {
+        //to check if the queue is empty
+        if (front == nullptr) {
+            return nullptr; // queue is empty
+        }
+        Node* frontNode = front;
+        Process* dequeuedProcess = frontNode->process;
+        front = frontNode->next;
+        delete frontNode;
+        if (front == nullptr) {
+            rear = nullptr; // last element removed
+        }
+        return dequeuedProcess;
+    }
+    bool isEmpty() {
+        return front == nullptr;
+    }
+};
+void sortReadyQueueByRemainingTime(Queue& queue) {
+    // ff the queue is empty or has only one element, it is already sorted
+    if (queue.front == nullptr || queue.front == queue.rear) {
+        return;
+    }
+    // use insertion sort to sort the ready queue based on remaining time
+    Node* sorted = nullptr;
+    Node* current = queue.front;
+   while (current != nullptr) {
+    // saves the next node in the unsorted list before modifying the current pointer
+    Node* next = current->next;
+    // checks if the sorted list is empty or if the current node should be inserted at the beginning
+    if (sorted == nullptr || sorted->process->remainingTime > current->process->remainingTime) {
+        // insert the current node at the beginning of the sorted list
+        current->next = sorted;
+        sorted = current;
+    } else {
+        // initializes a temporary pointer to traverse the sorted list
+        Node* temp = sorted;
+        // finds the correct position in the sorted list for the current node
+        while (temp->next != nullptr && temp->next->process->remainingTime <= current->process->remainingTime) {
+            temp = temp->next;
+        }
+        // inserts the current node at the correct position in the sorted list
+        current->next = temp->next;
+        temp->next = current;
+    }
+    // moves to the next node in the unsorted list
+    current = next;
+}
+    // updates front and rear pointers after sorting
+    queue.front = sorted;
+    while (sorted != nullptr && sorted->next != nullptr) {
+        sorted = sorted->next;
+    }
+    queue.rear = sorted;
+}
+// inside this function, the summation and averages of the total time and waiting time will be calulated
+void printAverages(std::vector<Process>& processes) {
+    int totalWaitingTime = 0;
+    int totalTurnaroundTime = 0;
+   cout << "\n\nJob\tTurnaround Time\t\tWaiting Time\n\n";
+    for (auto& process : processes) {
+        if (process.finished == 0) { // since the process never finished, then it never stopped waiting and never turned around
+            process.turnaroundTime = 0;
+            process.waitingTime = 0;
+        }
+        totalWaitingTime += process.waitingTime;
+        totalTurnaroundTime += process.turnaroundTime;
+       cout << "P" << process.processID << "\t" << process.turnaroundTime << "\t\t\t" << process.waitingTime << "\n";
+    }
+    // i did casting to have exact values
+    float avgWaitingTime = static_cast<float>(totalWaitingTime) / 7;
+    float avgTurnaroundTime = static_cast<float>(totalTurnaroundTime) /7;
+    cout << "\nAverage\t" << avgTurnaroundTime << "\t\t" << avgWaitingTime << "\n";
+}
+void srtf(vector<Process>& processes, int timeLimit) {
+    // here are the queues we will
+    Queue readyQueue;
+    Queue waitingQueue;
+    int currentTime = 0;
+    int totalProcessesExecuted = 0;
+    Process* currentProcess = nullptr;
+    //i put this -1 to make sure that it won't start with valid till we make sure it correct
+    int lastPrintedProcessID = -1; // initialize with an invalid ID
+    // initialize remaining time for all processes and enqueue them into the waiting queue
+    for (auto& process : processes) {
+        waitingQueue.enqueue(&process);
+    }
+    cout << "\n\nshortest Remaining Time First (SRTF):\n";
+    cout << "\n\t\tGantt Chart:\n\n";
+// hereiis the issue of the come back time will be solves using this loop
+    while (totalProcessesExecuted < processes.size() && currentTime < timeLimit) {
+        // checks for new arrivals during each time unit
+        while (!waitingQueue.isEmpty() && waitingQueue.front->process->arrivalTime <= currentTime) {
+            Process* arrivingProcess = waitingQueue.dequeue();
+            readyQueue.enqueue(arrivingProcess);
+            // if there is no current process or a process re-enters, get the next process from the ready queue
+            if (currentProcess == nullptr || arrivingProcess->remainingTime < currentProcess->remainingTime) {
+                if (currentProcess != nullptr) {
+                    // fe-enqueue the current process to the ready queue
+                    readyQueue.enqueue(currentProcess);
+                }
+            }
+        }
+        // sort the ready queue by remaining time after processing all new arrivals
+        sortReadyQueueByRemainingTime(readyQueue);
+        // update current process to be the process at the front of the ready queue
+        if (!readyQueue.isEmpty()) {
+            currentProcess = readyQueue.front->process;
+        }
+        // execute the current process for one time unit
+        if (currentProcess != nullptr) {
+            if (currentProcess->processID != lastPrintedProcessID) {
+                cout << "\tP" << currentProcess->processID << "\tStart CPU time:\t\t" << currentTime << "\n";
+                lastPrintedProcessID = currentProcess->processID;
+            }
+            currentTime++; // increment the current time after processing each time unit
+            currentProcess->remainingTime--; // update remaining time
+            // checks if the process is completed
+            if (currentProcess->remainingTime == 0) {
+                currentProcess->CompletionTime = currentTime;
+                currentProcess->turnaroundTime = currentProcess->CompletionTime - currentProcess->arrivalTime;
+                currentProcess->waitingTime = currentProcess->turnaroundTime - currentProcess->burstTime;
+                if (currentProcess->comesBackAfter > 0) {
+                    currentProcess->arrivalTime = currentTime + currentProcess->comesBackAfter;
+                    if (currentProcess->remainingTime == 0) {
+                        currentProcess->finished = 1;
+                    }
+                    // restores remaining time to the original burst time
+                    currentProcess->remainingTime = currentProcess->burstTime;
+                    Process* comebackProcess = readyQueue.dequeue();
+                    waitingQueue.enqueue(comebackProcess);
+                }
+            } else {
+                // check if there's a process with shorter remaining time, and preempt the current process
+                if (!readyQueue.isEmpty() && readyQueue.front->process->remainingTime < currentProcess->remainingTime) {
+                    // save the remaining time before enqueueing
+                    int tempRemainingTime = currentProcess->remainingTime;
+                    readyQueue.enqueue(currentProcess);
+                    currentProcess = readyQueue.front->process; // update current process
+                    currentProcess->remainingTime = tempRemainingTime; //restore remaining time
+                }
+            }
+        }
+    }
+        printAverages(processes);
+}
+int main() {
+    int n;
+    cout << "Enter total number of processes: ";
+    cin >> n;
+    vector<Process> processes;
+       for (int i = 0; i < n; i++) {
+        cout << "process " << i << " details:\n";
+        cout << "enter arrival time and burst time and comesback time: ";
+        int arrival, burst, comesBack;
+        cin >> arrival >> burst >> comesBack;
+        processes.emplace_back(i, arrival, burst, comesBack);
+    }
+    srtf(processes, maxTime);
+    return 0;
+}
