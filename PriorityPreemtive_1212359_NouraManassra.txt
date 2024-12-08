@@ -1,0 +1,177 @@
+/// Student's Name : Noura Awni Jaber Manassra
+/// Student's ID : 1212359
+/// Instructor's Name : Dr. Abdel Salam Sayyad
+/// Section : 1
+#include<iostream>
+#include<algorithm>
+#include<vector>
+
+using namespace std;
+// I declared a struct to deal with it, it's much easier and faster
+struct process
+{
+    int ID;
+    int burstTime;
+    int waitTime;
+    int arrivalTime;
+    int turn_aroundTime;
+    int comes_back_afterTime;
+    int completionTime_comesback;
+    int completionTime;
+    int PriorityTime;
+    int remainingTime;
+    int remainingTimealgo;
+    bool operator==(const process& other) const
+    {
+        // Customize the equality check 
+        return (ID == other.ID );
+    }
+};
+
+vector<process> finalQ; // this acts as the ready queue
+vector<process> Q; // this acts as the ready queue
+vector<process> tempQ; // this acts as the ready queue
+bool cmp1(process p1,process p2)
+{// this coparsion depends on the FCFS algo this is why it depends on the priority
+    return p1.PriorityTime<p2.PriorityTime;
+}
+void preemtivePriority(process*, int);
+void print_gantt_chart(vector<process>);
+void print_table(vector<process>,int);
+
+int main()
+{
+    int n;
+    cout<<"Enter total number of processes: ";
+    cin>>n;
+    process p[n];
+    for (int i=0; i<n; i++)
+    {
+        p[i].ID=i;
+        cout<<i<<" process details: \n";
+        cout<<"Enter arrival time and burst time: ";
+        cin>>p[i].arrivalTime;
+        cin>>p[i].burstTime;
+        cin>>p[i].comes_back_afterTime;
+        cin>>p[i].PriorityTime;
+        p[i].waitTime=0;
+        p[i].remainingTime= p[i].burstTime;
+        p[i].completionTime_comesback=0;
+        p[i].turn_aroundTime=0;
+        p[i].completionTime=0;
+        p[i].remainingTimealgo=0;
+        Q.push_back(p[i]);
+    }
+    sort (Q.begin(),Q.end(),cmp1);
+    preemtivePriority(p,n);
+}
+
+void preemtivePriority(process p[],int n)
+{
+    int flag[7]= {0};// these flags here will be used for evaluting the arrival time 
+    int TotWt = 0;
+    int TotTu = 0;
+    int current_time = 0;
+    int quantum = 5;
+    int current_id = Q.front().ID;
+    while (current_time < 200)
+    {
+        for (int second=0; second<7; second++)
+        {//for this here, first it checks if the current process exists in the queue
+             auto it = std::find(tempQ.begin(), tempQ.end(), p[second]);
+                if ((current_time >= p[second].completionTime_comesback) && (it == tempQ.end()))
+// if the process doesnot exist, and it's time for the process to come back then it will push it to the queue
+            if ((p[second].arrivalTime <= (current_time)))
+            {
+                tempQ.push_back(p[second]);
+                Q.push_back(p[second]);
+            }
+        }
+        current_id = tempQ.front().ID;// this id, is for the process excuted and we will be doing the calcuations depeing on it
+
+//since its preemtive, so it's not neccaasry for the process to be all of it excuted, so it will be calculated depending on some conditions
+        if (p[current_id].remainingTime > quantum)
+        {
+            current_time = current_time + quantum;
+            p[current_id].remainingTime = p[current_id].remainingTime - quantum;
+        }
+        else
+        {
+            current_time =current_time +  p[current_id].remainingTime;
+            p[current_id].remainingTime=0;
+        }
+
+        if (p[current_id].remainingTime == 0)
+        {
+  if (flag[current_id]==1)
+  {
+         p[current_id].arrivalTime = p[current_id].comes_back_afterTime+p[current_id].completionTime;
+  }
+        p[current_id].completionTime = current_time;
+        p[current_id].completionTime_comesback = p[current_id].completionTime + p[current_id].comes_back_afterTime;// main formula
+        p[current_id].turn_aroundTime = current_time - p[current_id].arrivalTime;// main formula
+        p[current_id].waitTime = p[current_id].turn_aroundTime -  p[current_id].burstTime;// main formula
+        if (p[current_id].waitTime < 0) p[current_id].waitTime = p [current_id].waitTime * -1;// just in case 
+        if (p[current_id].turn_aroundTime < 0) p[current_id].turn_aroundTime = p[current_id].turn_aroundTime * -1;// just in case 
+        TotWt += p[current_id].waitTime;// to ge tthe avg later
+        TotTu += p[current_id].turn_aroundTime;// to ge tthe avg later
+            p[current_id].remainingTime=p[current_id].burstTime;
+             flag[current_id]=1;
+        }
+        Q.erase(Q.begin());
+         tempQ.erase(tempQ.begin());
+        if ((current_time) > 200) break;
+        else
+        {
+            finalQ.push_back(p[current_id]);
+            for (int i = 0; i < 7; i++)
+            {
+                auto it = std::find(Q.begin(), Q.end(), p[i]);
+                if ((current_time >= p[i].completionTime_comesback)  && (it == Q.end()))
+                {
+                    tempQ.push_back(p[i]);
+                    Q.push_back(p[current_id]);
+                }
+            }
+        }
+    }
+    int m =finalQ.size();
+    cout<<endl;
+    print_table(finalQ,n);
+    printf("Total Waiting Time      : %d\n", TotWt);
+    printf("Average Waiting Time    : %f\n", (double)TotWt / (double) 7);
+    printf("Total Turnaround Time   : %d\n", TotTu);
+    printf("Average Turnaround Time : %f\n", (double)TotTu/ (double) 7);
+    print_gantt_chart(finalQ);
+}
+
+
+void print_table(vector<process> p, int n)
+{
+    n=finalQ.size();
+    int i;
+    cout<<"+-----+--------------+------------+--------------+-----------------+\n";
+    cout<<"| PID | Arrival Time | Burst Time | Waiting Time | Turnaround Time |\n";
+    cout<<"+-----+--------------+------------+--------------+-----------------+\n";
+
+    for(i=0; i<n; i++)
+    {
+        printf("| %2d  |     %2d       |     %2d     |      %2d      |        %2d       |\n", p[i].ID, p[i].arrivalTime,p[i].burstTime, p[i].waitTime, p[i].turn_aroundTime);
+        cout<<"+-----+--------------+------------+--------------+-----------------+\n";
+    }
+    cout<<"\n\n";
+}
+//
+void print_gantt_chart(vector<process> q)
+{
+    int n = q.size();
+    cout<<"\n          GANTT CHART          \n          ***********          \n";
+    for (int k=0; k<n; k++)
+    {
+        if(k==n-1)
+            cout << "P" <<  q[k].ID;
+        else
+            cout << "P" <<  q[k].ID << "->";
+
+    }
+}
